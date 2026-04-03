@@ -93,8 +93,10 @@ function Combat.getNearestEnemy(enemies)
     local bestDist = math.huge
 
     for _, enemy in ipairs(enemies) do
+        local hum = enemy:FindFirstChildOfClass("Humanoid")
         local hrp = enemy:FindFirstChild("HumanoidRootPart")
-        if hrp then
+
+        if hum and hum.Health > 0 and hrp then
             local dist = (root.Position - hrp.Position).Magnitude
             if dist < bestDist then
                 bestDist = dist
@@ -104,9 +106,9 @@ function Combat.getNearestEnemy(enemies)
     end
 
     if best then
-        warn("[ATS2/Combat] getNearestEnemy =>", getEnemyName(best), "| dist:", math.floor(bestDist))
+        warn("[ATS2/Combat] getNearestEnemy =>", best.Name, "| dist:", math.floor(bestDist))
     else
-        warn("[ATS2/Combat] getNearestEnemy => nil")
+        warn("[ATS2/Combat] getNearestEnemy => nil (no alive enemies)")
     end
 
     return best
@@ -116,8 +118,9 @@ function Combat.clearAllEnemies(State)
     warn("[ATS2/Combat] clearAllEnemies start | version:", ATS2.Version)
 
     local currentTarget = nil
-    local lastTargetName = nil
-    local noEnemyLoggedAt = 0
+    local stopDistance = Config.attackStopDistance or 6
+    local repathDelay = Config.attackRepathDelay or 0.12
+    local lastMoveAt = 0
 
     while true do
         if shouldStop() then
@@ -128,45 +131,45 @@ function Combat.clearAllEnemies(State)
         Combat.refreshAutoAttack(State)
 
         local enemies = Game.getEnemies(State)
-
         if #enemies == 0 then
-            if tick() - noEnemyLoggedAt > 1 then
-                warn("[ATS2/Combat] no enemies found | version:", ATS2.Version)
-                noEnemyLoggedAt = tick()
-            end
+            warn("[ATS2/Combat] no enemies found")
             return true
         end
 
         local hum = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        local deadOrInvalid = (not currentTarget)
+            or (not currentTarget.Parent)
+            or (not hum)
+            or (hum.Health <= 0)
 
-        if not currentTarget
-            or not currentTarget.Parent
-            or not hum
-            or hum.Health <= 0 then
-
-            local oldName = getEnemyName(currentTarget)
+        if deadOrInvalid then
+            local oldName = currentTarget and currentTarget.Name or "nil"
             currentTarget = Combat.getNearestEnemy(enemies)
-            local newName = getEnemyName(currentTarget)
-
-            warn("[ATS2/Combat] retarget | old:", oldName, "-> new:", newName, "| enemies:", #enemies)
-            lastTargetName = newName
+            local newName = currentTarget and currentTarget.Name or "nil"
+            warn("[ATS2/Combat] retarget | old:", oldName, "-> new:", newName)
         end
 
-        if currentTarget then
-            local hrp = currentTarget:FindFirstChild("HumanoidRootPart")
-            local dist = hrp and getTargetDistanceFromPlayer(currentTarget) or math.huge
+        hum = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        if not currentTarget or not hum or hum.Health <= 0 then
+            currentTarget = Combat.getNearestEnemy(enemies)
+        end
 
-            if math.abs((State._lastAttackDist or -1) - dist) > 5 then
-                warn("[ATS2/Combat] attacking:", getEnemyName(currentTarget), "| dist:", math.floor(dist))
-                State._lastAttackDist = dist
+        hum = currentTarget and currentTarget:FindFirstChildOfClass("Humanoid")
+        if currentTarget and hum and hum.Health > 0 then
+            local dist = getTargetDistanceFromPlayer(currentTarget)
+
+            if dist > stopDistance then
+                if tick() - lastMoveAt >= repathDelay then
+                    Game.attackTarget(currentTarget)
+                    lastMoveAt = tick()
+                end
+            else
+                -- ถึงระยะแล้ว ไม่ต้องสั่งเดินซ้ำ
+                -- ปล่อยให้ auto attack ทำงานไป
             end
-
-            Game.attackTarget(currentTarget)
-        else
-            warn("[ATS2/Combat] currentTarget is nil even though enemies exist")
         end
 
-        task.wait()
+        task.wait(0.03)
     end
 end
 

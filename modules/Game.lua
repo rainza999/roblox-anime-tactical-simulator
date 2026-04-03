@@ -270,22 +270,25 @@ function Game.getEnemies(State)
 end
 
 function Game.attackTarget(target)
-    if not target then
-        return false
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+
+    if not root or not hum or not targetRoot then
+        return
     end
 
-    local hrp = target:FindFirstChild("HumanoidRootPart")
-    if not hrp then
-        return false
+    local stopDistance = 6
+    local dist = (root.Position - targetRoot.Position).Magnitude
+
+    if dist <= stopDistance then
+        hum:Move(Vector3.zero, false)
+        return
     end
 
-    local root = getCharacter():FindFirstChild("HumanoidRootPart")
-    if not root then
-        return false
-    end
-
-    root.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
-    return true
+    hum:MoveTo(targetRoot.Position)
 end
 
 function Game.waitUntilInRaid(timeout)
