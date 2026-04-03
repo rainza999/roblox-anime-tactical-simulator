@@ -189,17 +189,18 @@ function Game.isInRaid()
 end
 
 function Game.getEnemies(State)
+    print("[Game.getEnemies] Scanning for enemies...")
     local folders = Game.getTargetFolders()
     local results = {}
 
     for _, folder in ipairs(folders) do
-        for _, obj in ipairs(folder:GetChildren()) do
-            if obj:IsA("Model") then
-                local hum = obj:FindFirstChildOfClass("Humanoid")
-                local hrp = obj:FindFirstChild("HumanoidRootPart")
+        for _, obj in ipairs(folder:GetDescendants()) do
+            if obj:IsA("Humanoid") and obj.Health > 0 then
+                local model = obj.Parent
+                local hrp = model and model:FindFirstChild("HumanoidRootPart")
 
-                if hum and hrp and hum.Health > 0 then
-                    table.insert(results, obj)
+                if hrp then
+                    table.insert(results, model)
                 end
             end
         end
@@ -207,13 +208,7 @@ function Game.getEnemies(State)
 
     if State and State.debug then
         print("[Game.getEnemies] folders =", #folders)
-        for _, folder in ipairs(folders) do
-            print(" - folder:", folder:GetFullName(), "children:", #folder:GetChildren())
-        end
         print("[Game.getEnemies] enemies =", #results)
-        for _, enemy in ipairs(results) do
-            print(" - enemy:", enemy:GetFullName(), "hp:", enemy:FindFirstChildOfClass("Humanoid").Health)
-        end
     end
 
     return results
