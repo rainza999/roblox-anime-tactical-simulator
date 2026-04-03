@@ -1,22 +1,21 @@
+warn("### CHEST MODULE LOADED ###")
 local ATS2 = getgenv().ATS2
-local Utils = ATS2.require("modules/Utils.lua")
 local Game = ATS2.require("modules/Game.lua")
-local Config = ATS2.require("modules/Config.lua")
 
 local Chest = {}
 
-function Chest.openSelectedChests(State)
-    local selected = State.selectedChests or {}
-    if #selected == 0 then
-        return true
+function Chest.openSelected(State)
+    local chests = Game.getRewardChests()
+
+    if #chests == 0 then
+        warn("[ATS2] no chests to open")
+        return false
     end
 
-    for _, chestName in ipairs(selected) do
-        local chest = Game.getNamedChest(chestName)
-        if chest then
-            Game.openChest(chest)
-            task.wait(Config.chestOpenDelay or 0.4)
-        end
+    for _, chest in ipairs(chests) do
+        warn("[ATS2] opening chest:", chest.Name)
+        Game.openChest(chest)
+        task.wait(0.15)
     end
 
     return true

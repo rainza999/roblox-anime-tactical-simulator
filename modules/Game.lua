@@ -208,12 +208,38 @@ function Game.enableAutoAttack()
     return true
 end
 
+function Game.getRaidFolders()
+    local clients = workspace.Worlds.Targets.Clients
+    local results = {}
+
+    for _, obj in ipairs(clients:GetChildren()) do
+        if obj.Name:match("^Raids") then
+            table.insert(results, obj)
+        end
+    end
+
+    return results
+end
+
+function Game.getBossFightFolders()
+    local clients = workspace.Worlds.Targets.Clients
+    local results = {}
+
+    for _, obj in ipairs(clients:GetChildren()) do
+        if obj.Name:match("^BossFight") then
+            table.insert(results, obj)
+        end
+    end
+
+    return results
+end
+
 function Game.isInRaid()
-    return #Game.getTargetFolders() > 0
+    return #Game.getRaidFolders() > 0
 end
 
 function Game.getEnemies(State)
-    local folders = Game.getTargetFolders()
+    local folders = Game.getRaidFolders()
     local results = {}
     local seen = {}
 
@@ -285,4 +311,73 @@ function Game.waitForFirstEnemies(timeout, State)
     return false
 end
 
+local function findActiveRaidVisual()
+    local visuals = Workspace:FindFirstChild("Raids_Visual")
+    if not visuals then return nil end
+
+    for _, obj in ipairs(visuals:GetChildren()) do
+        if obj.Name:find("_Server_") then
+            return obj
+        end
+    end
+
+    return nil
+end
+
+function Game.getRewardChests()
+    local visual = findActiveRaidVisual()
+    if not visual then
+        warn("[ATS2] no raid visual found")
+        return {}
+    end
+
+    local rewards = visual:FindFirstChild("Configs")
+    rewards = rewards and rewards:FindFirstChild("Others")
+    rewards = rewards and rewards:FindFirstChild("Rewards")
+
+    if not rewards then
+        warn("[ATS2] no rewards folder")
+        return {}
+    end
+
+    local results = {}
+
+    local golds = rewards:FindFirstChild("Golds")
+    local specials = rewards:FindFirstChild("Specials")
+
+    if golds then table.insert(results, golds) end
+    if specials then table.insert(results, specials) end
+
+    warn("[ATS2] reward chests:", #results)
+
+    return results
+end
+
+function Game.openChest(chest)
+    if not chest then return false end
+
+    local part = chest:IsA("BasePart") and chest 
+        or chest:FindFirstChildWhichIsA("BasePart", true)
+
+    if not part then
+        warn("[ATS2] no part in chest:", chest:GetFullName())
+        return false
+    end
+
+    local root = getRoot()
+
+    -- วาร์ปไปหน้ากล่อง
+    root.CFrame = part.CFrame * CFrame.new(0, 0, 3)
+
+    task.wait(0.1)
+
+    -- กด E
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+
+    warn("[ATS2] opened chest:", chest.Name)
+
+    return true
+end
 return Game

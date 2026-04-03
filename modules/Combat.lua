@@ -74,13 +74,20 @@ function Combat.clearAllEnemies(State)
             return true
         end
 
-        local target = Combat.getClosestEnemy(State)
-        if target then
-            Game.attackTarget(target)
-            Combat.waitUntilDeadOrGone(target, 10, State)
-        else
-            task.wait(0.2)
+        -- ถ้า target เดิมตายหรือหาย → หาใหม่ทันที
+        if not currentTarget 
+        or not currentTarget.Parent 
+        or not currentTarget:FindFirstChildOfClass("Humanoid")
+        or currentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
+
+            currentTarget = Combat.getNearestEnemy(enemies)
         end
+
+        if currentTarget then
+            Game.attackTarget(currentTarget)
+        end
+
+        task.wait() -- ⚡ 1 frame (เร็วสุด)
     end
 end
 
