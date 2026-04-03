@@ -1,4 +1,7 @@
 local ATS2 = getgenv().ATS2
+local function shouldStop()
+    return ATS2 and ATS2.isStopped and ATS2.isStopped()
+end
 local Utils = ATS2.require("modules/Utils.lua")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -189,6 +192,12 @@ function Game.isInRaid()
 end
 
 function Game.getEnemies(State)
+    if shouldStop() then
+        if State and State.debug then
+            warn("[Game.getEnemies] stopped before scan")
+        end
+        return {}
+    end
     print("[Game.getEnemies] Scanning for enemies...")
     local folders = Game.getTargetFolders()
     local results = {}

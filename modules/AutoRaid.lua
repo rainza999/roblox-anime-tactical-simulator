@@ -1,4 +1,8 @@
 local ATS2 = getgenv().ATS2
+local function shouldStop()
+    return ATS2 and ATS2.isStopped and ATS2.isStopped()
+end
+
 local Utils = ATS2.require("modules/Utils.lua")
 local Game = ATS2.require("modules/Game.lua")
 local Combat = ATS2.require("modules/Combat.lua")
@@ -38,6 +42,11 @@ function AutoRaid.enter(State)
 end
 
 function AutoRaid.run(State)
+    warn("[ATS2/AutoRaid] run start version:", ATS2.Version)
+
+    if shouldStop() then
+        return false
+    end
     State.currentMode = "raid"
 
     if not Game.isInRaid() then

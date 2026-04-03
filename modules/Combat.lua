@@ -1,4 +1,7 @@
 local ATS2 = getgenv().ATS2
+local function shouldStop()
+    return ATS2 and ATS2.isStopped and ATS2.isStopped()
+end
 local Game = ATS2.require("modules/Game.lua")
 local Config = ATS2.require("modules/Config.lua")
 
@@ -58,7 +61,12 @@ function Combat.waitUntilDeadOrGone(target, timeout, State)
 end
 
 function Combat.clearAllEnemies(State)
+    warn("[ATS2/Combat] clearAllEnemies start version:", ATS2.Version)
     while true do
+        if shouldStop() then
+            warn("[ATS2/Combat] STOP break")
+            return false
+        end
         Combat.refreshAutoAttack(State)
 
         local enemies = Game.getEnemies(State)
