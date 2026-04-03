@@ -4,26 +4,24 @@ local State = {
     autoRaid = true,
     autoDungeonBoss = false,
 
-    selectedRaidMap = "Map1",
-    selectedRaidLevel = "Normal",
+    selectedRaidMap = "Jujutsu Highschool",
+    selectedRaidLevel = "Nightmare",
 
     selectedDungeonBossMap = "Map4",
 
     selectedChests = {
-        -- เรียงลำดับกล่องที่อยากเปิด
-        -- เช่น "Chest1", "Chest3", "Chest2"
+        "Golds",
+        "Specials",
     },
 
     bossWindows = {
-        -- เปิด 5 นาที ทุก 10 นาที
-        -- ถ้าอยากเปลี่ยนทีหลังไปปรับ Scheduler
         intervalMinutes = 10,
         durationMinutes = 5,
     },
 
-    currentMode = "idle", -- idle / raid / dungeon_boss
+    currentMode = "idle",
     inInstance = false,
-    instanceType = nil,   -- raid / dungeon_boss / nil
+    instanceType = nil,
 
     lastBossWindowKey = nil,
     bossDoneInCurrentWindow = false,

@@ -8,7 +8,8 @@ local Combat = {}
 function Combat.getAliveEnemies()
     local results = {}
     for _, enemy in ipairs(Game.getEnemies()) do
-        if Utils.isAliveModel(enemy) then
+        local hum = enemy:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
             table.insert(results, enemy)
         end
     end
@@ -16,16 +17,17 @@ function Combat.getAliveEnemies()
 end
 
 function Combat.getClosestEnemy()
-    local player = game.Players.LocalPlayer
-    local char = player and player.Character
+    local char = game.Players.LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
+    if not root then
+        return nil
+    end
 
-    local enemies = Combat.getAliveEnemies()
-    local best, bestDist = nil, math.huge
+    local best = nil
+    local bestDist = math.huge
 
-    for _, enemy in ipairs(enemies) do
-        local ehrp = Utils.getHumanoidRootPart(enemy)
+    for _, enemy in ipairs(Combat.getAliveEnemies()) do
+        local ehrp = enemy:FindFirstChild("HumanoidRootPart")
         if ehrp then
             local dist = (root.Position - ehrp.Position).Magnitude
             if dist < bestDist then
@@ -39,6 +41,9 @@ function Combat.getClosestEnemy()
 end
 
 function Combat.clearAllEnemies(State)
+    Game.enableAutoAttack()
+    task.wait(0.2)
+
     while true do
         local enemies = Combat.getAliveEnemies()
         if #enemies == 0 then
@@ -46,12 +51,11 @@ function Combat.clearAllEnemies(State)
         end
 
         local target = Combat.getClosestEnemy()
-        if not target then
-            Utils.safeWait(Config.scanDelay)
-        else
-            Utils.tpTo(target)
+        if target then
             Game.attackTarget(target)
-            Utils.safeWait(Config.attackDelay)
+            task.wait(Config.attackDelay or 0.08)
+        else
+            task.wait(0.15)
         end
     end
 end

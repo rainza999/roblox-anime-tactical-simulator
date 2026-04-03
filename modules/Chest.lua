@@ -14,24 +14,12 @@ function Chest.openSelectedChests(State)
     for _, chestName in ipairs(selected) do
         local chest = Game.getNamedChest(chestName)
         if chest then
-            Utils.tpTo(chest)
-            Utils.safeWait(0.15)
             Game.openChest(chest)
-            Utils.safeWait(Config.chestOpenDelay)
+            task.wait(Config.chestOpenDelay or 0.4)
         end
     end
 
     return true
-end
-
-function Chest.openAllChestsFallback()
-    local all = Game.getRewardChests()
-    for _, chest in ipairs(all) do
-        Utils.tpTo(chest)
-        Utils.safeWait(0.15)
-        Game.openChest(chest)
-        Utils.safeWait(0.35)
-    end
 end
 
 return Chest
