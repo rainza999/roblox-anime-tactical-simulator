@@ -37,10 +37,19 @@ local function getRoot()
 end
 
 local function getParty()
-    return ReplicatedStorage
+    local parties = ReplicatedStorage
         :WaitForChild("Shared")
         :WaitForChild("Parties")
-        :WaitForChild("RainFatherReal")
+
+    -- หา party ของ local player
+    local party = parties:FindFirstChild(LocalPlayer.Name)
+
+    if not party then
+        warn("[ATS2] Party not found for:", LocalPlayer.Name)
+        return nil
+    end
+
+    return party
 end
 
 local function getRaidLobbyRemote()
