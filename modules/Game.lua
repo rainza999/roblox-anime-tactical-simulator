@@ -1,3 +1,4 @@
+warn("### GAME LUA NEW BUILD 2026-04-03 14:40 ###")
 local ATS2 = getgenv().ATS2
 local function shouldStop()
     return ATS2 and ATS2.isStopped and ATS2.isStopped()
