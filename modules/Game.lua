@@ -39,6 +39,11 @@ end
 
 local function getParty()
     print("[Game.getParty] Finding party for player v2:", LocalPlayer.Name)
+    local parties = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Parties")
+    for _, p in ipairs(parties:GetChildren()) do
+        warn("[ATS2] party child:", p.Name)
+    end
+
     local parties = ReplicatedStorage
         :WaitForChild("Shared")
         :WaitForChild("Parties")
