@@ -173,6 +173,7 @@ function Game.disableParty()
 end
 
 function Game.enterRaid(mapName, levelName)
+    warn("### GAME.ENTERRAID NEW ###", mapName, levelName)
     warn("[ATS2] Entering raid:", mapName, levelName)
 
     Game.goToChallengesLobby()

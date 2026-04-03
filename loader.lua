@@ -1,5 +1,12 @@
 local BASE = "https://raw.githubusercontent.com/rainza999/roblox-anime-tactical-simulator/main/"
 
+getgenv().ATS2 = {
+    Modules = {},
+    LoadedAt = os.time(),
+    Version = "ATS2-HARDCLEAR-" .. tostring(os.time()),
+    StopRequested = false,
+}
+
 getgenv().ATS2 = getgenv().ATS2 or {}
 getgenv().ATS2.Modules = {}
 getgenv().ATS2.LoadedAt = os.time()

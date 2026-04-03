@@ -1,3 +1,4 @@
+warn("### AUTORAID FILE NEW BUILD 15:10 ###")
 local ATS2 = getgenv().ATS2
 local Game = ATS2.require("modules/Game.lua")
 local Combat = ATS2.require("modules/Combat.lua")
@@ -8,7 +9,7 @@ local AutoRaid = {}
 function AutoRaid.run(State)
     warn("[ATS2/AutoRaid] run start version:", ATS2.Version)
     warn("[AutoRaid] map =", State.raidMap, "level =", State.raidLevel)
-
+    warn("### AUTORAID.RUN NEW ###", State.raidMap, State.raidLevel)
     if not Game.isInRaid() then
         Game.enterRaid(State.raidMap, State.raidLevel)
 
