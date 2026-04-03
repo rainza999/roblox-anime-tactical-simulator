@@ -60,6 +60,31 @@ function Combat.waitUntilDeadOrGone(target, timeout, State)
     return false
 end
 
+function Combat.getNearestEnemy(enemies)
+    local root = game:GetService("Players").LocalPlayer.Character
+        and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        return nil
+    end
+
+    local best = nil
+    local bestDist = math.huge
+
+    for _, enemy in ipairs(enemies) do
+        local hrp = enemy:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (root.Position - hrp.Position).Magnitude
+            if dist < bestDist then
+                bestDist = dist
+                best = enemy
+            end
+        end
+    end
+
+    return best
+end
+
 function Combat.clearAllEnemies(State)
     warn("[ATS2/Combat] clearAllEnemies start version:", ATS2.Version)
     while true do

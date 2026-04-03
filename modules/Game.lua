@@ -279,8 +279,12 @@ function Game.attackTarget(target)
         return false
     end
 
-    local dest = hrp.CFrame * CFrame.new(0, 0, 3)
-    Utils.tpTo(dest)
+    local root = getCharacter():FindFirstChild("HumanoidRootPart")
+    if not root then
+        return false
+    end
+
+    root.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
     return true
 end
 
