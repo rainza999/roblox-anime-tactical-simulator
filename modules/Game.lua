@@ -30,8 +30,7 @@ local function getCharacter()
 end
 
 local function getRoot()
-    local char = getCharacter()
-    return char:WaitForChild("HumanoidRootPart")
+    return getCharacter():WaitForChild("HumanoidRootPart")
 end
 
 local function getParty()
@@ -70,27 +69,51 @@ local function isEnemyModel(obj)
     return hum ~= nil and hrp ~= nil
 end
 
-local function findActiveTargetFolder()
+local function getTargetFolders()
     local clients = Workspace
         :WaitForChild("Worlds")
         :WaitForChild("Targets")
         :WaitForChild("Clients")
 
-    local candidates = {}
+    local results = {}
 
     for _, obj in ipairs(clients:GetChildren()) do
-        if obj:IsA("Folder") or obj:IsA("Model") then
-            if string.match(obj.Name, "^Raids") or string.match(obj.Name, "^BossFight") then
-                table.insert(candidates, obj)
-            end
+        if (obj:IsA("Folder") or obj:IsA("Model")) and (obj.Name:match("^Raids") or obj.Name:match("^BossFight")) then
+            table.insert(results, obj)
         end
     end
 
-    table.sort(candidates, function(a, b)
-        return a.Name < b.Name
-    end)
+    return results
+end
 
-    return candidates[1]
+local function chooseBestTargetFolder()
+    local folders = getTargetFolders()
+    if #folders == 0 then
+        return nil
+    end
+
+    local bestFolder = nil
+    local bestCount = -1
+
+    for _, folder in ipairs(folders) do
+        local count = 0
+        for _, child in ipairs(folder:GetChildren()) do
+            if isEnemyModel(child) then
+                count = count + 1
+            end
+        end
+
+        if count > bestCount then
+            bestCount = count
+            bestFolder = folder
+        end
+    end
+
+    if bestFolder then
+        return bestFolder
+    end
+
+    return folders[1]
 end
 
 local function findActiveRaidVisual()
@@ -100,7 +123,7 @@ local function findActiveRaidVisual()
     end
 
     for _, obj in ipairs(visuals:GetChildren()) do
-        if string.find(obj.Name, "_Server_") then
+        if obj.Name:find("_Server_") then
             return obj
         end
     end
@@ -108,24 +131,15 @@ local function findActiveRaidVisual()
     return nil
 end
 
--- =========================
--- LOBBY / RAID ENTRY
--- =========================
-
 function Game.goToChallengesLobby()
-    local args = {
-        buffer.fromstring("\005\005\000Lobby")
-    }
-    getByteNetReliable():FireServer(unpack(args))
+    getByteNetReliable():FireServer(buffer.fromstring("\005\005\000Lobby"))
     return true
 end
 
 function Game.teleportToRaidPod(podName)
     podName = podName or "Pod_01"
-
     local pod = Game.RaidPods[podName]
     if not pod then
-        warn("[Game] pod not found:", podName)
         return false
     end
 
@@ -143,18 +157,14 @@ end
 
 function Game.stepIntoRaidPod(podName)
     podName = podName or "Pod_01"
-
     local pod = Game.RaidPods[podName]
     if not pod then
         return false
     end
 
     local root = getRoot()
-    if not root then
-        return false
-    end
-
     local center = pod:FindFirstChild("Centers")
+
     if center and center:IsA("BasePart") then
         root.CFrame = center.CFrame + (center.CFrame.LookVector * 2)
         return true
@@ -170,30 +180,18 @@ end
 
 function Game.selectRaidMap(mapName)
     local mapped = Game.RaidMapAlias[mapName] or mapName
-    local args = {
-        getParty(),
-        mapped
-    }
-    getRaidLobbyRemote():FireServer(unpack(args))
+    getRaidLobbyRemote():FireServer(getParty(), mapped)
     return true
 end
 
 function Game.selectRaidDifficulty(diffName)
     local mapped = Game.RaidDifficultyAlias[diffName] or diffName
-    local args = {
-        getParty(),
-        mapped
-    }
-    getRaidLobbyRemote():FireServer(unpack(args))
+    getRaidLobbyRemote():FireServer(getParty(), mapped)
     return true
 end
 
 function Game.startRaid(mapName, diffName)
-    local args = {
-        mapName,
-        diffName
-    }
-    getRaidStartRemote():FireServer(unpack(args))
+    getRaidStartRemote():FireServer(mapName, diffName)
     return true
 end
 
@@ -208,51 +206,26 @@ function Game.enterRaid(mapName, levelName)
     task.wait(0.8)
 
     Game.selectRaidMap(mapName)
-    task.wait(0.3)
+    task.wait(0.35)
 
     Game.selectRaidDifficulty(levelName)
-    task.wait(0.3)
+    task.wait(0.35)
 
     Game.startRaid(mapName, levelName)
-    task.wait(2.0)
-
     return true
 end
-
--- =========================
--- AUTO ATTACK
--- =========================
 
 function Game.enableAutoAttack()
-    local args = {
-        buffer.fromstring("\016\000")
-    }
-    getByteNetReliable():FireServer(unpack(args))
+    getByteNetReliable():FireServer(buffer.fromstring("\016\000"))
     return true
 end
 
--- =========================
--- INSTANCE CHECK
--- =========================
-
 function Game.isInRaid()
-    return findActiveTargetFolder() ~= nil
+    return chooseBestTargetFolder() ~= nil
 end
-
-function Game.isInDungeonBoss()
-    return false
-end
-
-function Game.isInAnyInstance()
-    return Game.isInRaid() or Game.isInDungeonBoss()
-end
-
--- =========================
--- ENEMIES
--- =========================
 
 function Game.getEnemies()
-    local folder = findActiveTargetFolder()
+    local folder = chooseBestTargetFolder()
     if not folder then
         return {}
     end
@@ -260,7 +233,10 @@ function Game.getEnemies()
     local results = {}
     for _, obj in ipairs(folder:GetChildren()) do
         if isEnemyModel(obj) then
-            table.insert(results, obj)
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                table.insert(results, obj)
+            end
         end
     end
 
@@ -277,23 +253,33 @@ function Game.attackTarget(target)
         return false
     end
 
-    Utils.tpTo(hrp.CFrame)
+    -- ขยับไปข้างหน้ามอนนิดนึง ไม่ทับกลางตัว
+    local cf = hrp.CFrame * CFrame.new(0, 0, 3)
+    Utils.tpTo(cf)
     return true
 end
 
-function Game.isRaidCleared()
-    local enemies = Game.getEnemies()
-    if #enemies > 0 then
-        return false
+function Game.waitUntilInRaid(timeout)
+    local started = tick()
+    while tick() - started < (timeout or 20) do
+        if Game.isInRaid() then
+            return true
+        end
+        task.wait(0.25)
     end
-
-    local rewards = Game.getRewardChests()
-    return #rewards > 0
+    return false
 end
 
--- =========================
--- CHESTS
--- =========================
+function Game.waitForFirstEnemies(timeout)
+    local started = tick()
+    while tick() - started < (timeout or 15) do
+        if #Game.getEnemies() > 0 then
+            return true
+        end
+        task.wait(0.25)
+    end
+    return false
+end
 
 function Game.getRewardChests()
     local visual = findActiveRaidVisual()
@@ -309,28 +295,62 @@ function Game.getRewardChests()
     end
 
     local results = {}
-
     local golds = rewards:FindFirstChild("Golds")
-    if golds then
-        table.insert(results, golds)
-    end
-
     local specials = rewards:FindFirstChild("Specials")
-    if specials then
-        table.insert(results, specials)
-    end
+
+    if golds then table.insert(results, golds) end
+    if specials then table.insert(results, specials) end
 
     return results
 end
 
-function Game.getNamedChest(name)
-    local all = Game.getRewardChests()
-    for _, chest in ipairs(all) do
-        if chest.Name == name then
-            return chest
+function Game.isRaidCleared(State, Config)
+    local enemies = Game.getEnemies()
+
+    -- ยังไม่เคยเห็นมอน ห้ามถือว่าเคลียร์
+    if not State.raidHasSeenEnemies then
+        if #enemies > 0 then
+            State.raidHasSeenEnemies = true
+            State.raidEmptySince = nil
+            State.raidNoEnemyConfirmedAt = nil
         end
+        return false
     end
-    return nil
+
+    -- ยังมีมอนอยู่ = ยังไม่จบ
+    if #enemies > 0 then
+        State.raidEmptySince = nil
+        State.raidNoEnemyConfirmedAt = nil
+        return false
+    end
+
+    -- ไม่มีมอน เริ่มจับเวลา
+    if not State.raidEmptySince then
+        State.raidEmptySince = tick()
+        return false
+    end
+
+    -- ยังว่างไม่ถึง grace period => ยังไม่จบ เผื่อมี wave ใหม่
+    if tick() - State.raidEmptySince < (Config.clearEmptyGrace or 5.0) then
+        return false
+    end
+
+    -- ยืนยันแล้วว่าไม่มีมอนจริง
+    if not State.raidNoEnemyConfirmedAt then
+        State.raidNoEnemyConfirmedAt = tick()
+    end
+
+    -- ถ้ามี reward แล้ว = จบจริง
+    if #Game.getRewardChests() > 0 then
+        return true
+    end
+
+    -- ยังไม่มี reward ก็รออีกนิด เผื่อเกม spawn reward ช้า
+    if tick() - State.raidNoEnemyConfirmedAt < (Config.rewardAppearTimeout or 8.0) then
+        return false
+    end
+
+    return false
 end
 
 function Game.openChest(chest)
@@ -344,17 +364,23 @@ function Game.openChest(chest)
     end
 
     Utils.tpTo(targetPart.CFrame)
-    task.wait(0.2)
+    task.wait(0.25)
 
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    local vim = game:GetService("VirtualInputManager")
+    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
     task.wait(0.08)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
 
     return true
 end
 
-function Game.leaveCurrentInstance()
-    return true
+function Game.getNamedChest(name)
+    for _, chest in ipairs(Game.getRewardChests()) do
+        if chest.Name == name then
+            return chest
+        end
+    end
+    return nil
 end
 
 return Game

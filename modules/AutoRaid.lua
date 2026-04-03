@@ -8,32 +8,60 @@ local Config = ATS2.require("modules/Config.lua")
 local AutoRaid = {}
 
 function AutoRaid.enter(State)
+    State.raidHasSeenEnemies = false
+    State.raidEmptySince = nil
+    State.raidEnteredAt = tick()
+    State.lastAutoAttackAt = 0
+
     Utils.debugPrint(State, "Entering raid:", State.selectedRaidMap, State.selectedRaidLevel)
-    return Game.enterRaid(State.selectedRaidMap, State.selectedRaidLevel)
+    Game.enterRaid(State.selectedRaidMap, State.selectedRaidLevel)
+
+    local okInstance = Game.waitUntilInRaid(Config.waitInstanceTimeout)
+    if not okInstance then
+        warn("[AutoRaid] timed out waiting for raid instance")
+        return false
+    end
+
+    -- รอให้มอนโผล่ก่อน
+    local okEnemies = Game.waitForFirstEnemies(Config.waitEnemiesTimeout)
+    if okEnemies then
+        State.raidHasSeenEnemies = true
+    else
+        warn("[AutoRaid] no enemies seen yet, will continue polling")
+    end
+
+    -- เปิด auto attack หลังเข้า instance แล้ว
+    Game.enableAutoAttack()
+    State.lastAutoAttackAt = tick()
+
+    return true
 end
 
 function AutoRaid.run(State)
     State.currentMode = "raid"
 
     if not Game.isInRaid() then
-        AutoRaid.enter(State)
-        Utils.safeWait(Config.retryDelay)
+        local ok = AutoRaid.enter(State)
+        if not ok then
+            task.wait(Config.retryDelay or 1)
+            return false
+        end
     end
 
     while Game.isInRaid() do
-        if Game.isRaidCleared() then
-            Utils.debugPrint(State, "Raid cleared, opening selected chests...")
-            Utils.safeWait(Config.postClearDelay)
+        if Game.isRaidCleared(State, Config) then
+            Utils.debugPrint(State, "Raid cleared, opening chests...")
+            task.wait(Config.postClearDelay or 0.5)
             Chest.openSelectedChests(State)
-            Utils.safeWait(Config.afterRaidFinishDelay)
+            task.wait(Config.afterRaidFinishDelay or 1.0)
             return true
         end
 
         Combat.clearAllEnemies(State)
-        Utils.safeWait(Config.scanDelay)
+        task.wait(Config.scanDelay or 0.2)
     end
 
-    return true
+    return false
 end
 
 return AutoRaid

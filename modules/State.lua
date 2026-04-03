@@ -28,6 +28,13 @@ local State = {
 
     debug = true,
     tickRate = 0.2,
+
+    -- เพิ่ม
+    raidHasSeenEnemies = false,
+    raidEnteredAt = 0,
+    lastAutoAttackAt = 0,
+    raidEmptySince = nil,
+    raidNoEnemyConfirmedAt = nil,
 }
 
 return State

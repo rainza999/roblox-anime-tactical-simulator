@@ -1,20 +1,8 @@
 local ATS2 = getgenv().ATS2
-local Utils = ATS2.require("modules/Utils.lua")
 local Game = ATS2.require("modules/Game.lua")
 local Config = ATS2.require("modules/Config.lua")
 
 local Combat = {}
-
-function Combat.getAliveEnemies()
-    local results = {}
-    for _, enemy in ipairs(Game.getEnemies()) do
-        local hum = enemy:FindFirstChildOfClass("Humanoid")
-        if hum and hum.Health > 0 then
-            table.insert(results, enemy)
-        end
-    end
-    return results
-end
 
 function Combat.getClosestEnemy()
     local char = game.Players.LocalPlayer.Character
@@ -23,13 +11,12 @@ function Combat.getClosestEnemy()
         return nil
     end
 
-    local best = nil
-    local bestDist = math.huge
+    local best, bestDist = nil, math.huge
 
-    for _, enemy in ipairs(Combat.getAliveEnemies()) do
-        local ehrp = enemy:FindFirstChild("HumanoidRootPart")
-        if ehrp then
-            local dist = (root.Position - ehrp.Position).Magnitude
+    for _, enemy in ipairs(Game.getEnemies()) do
+        local hrp = enemy:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (root.Position - hrp.Position).Magnitude
             if dist < bestDist then
                 best = enemy
                 bestDist = dist
@@ -40,12 +27,18 @@ function Combat.getClosestEnemy()
     return best
 end
 
-function Combat.clearAllEnemies(State)
-    Game.enableAutoAttack()
-    task.wait(0.2)
+function Combat.refreshAutoAttack(State)
+    if not State.lastAutoAttackAt or (tick() - State.lastAutoAttackAt >= (Config.autoAttackRefresh or 2.0)) then
+        Game.enableAutoAttack()
+        State.lastAutoAttackAt = tick()
+    end
+end
 
+function Combat.clearAllEnemies(State)
     while true do
-        local enemies = Combat.getAliveEnemies()
+        Combat.refreshAutoAttack(State)
+
+        local enemies = Game.getEnemies()
         if #enemies == 0 then
             return true
         end
