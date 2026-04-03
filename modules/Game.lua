@@ -83,15 +83,11 @@ local function isRaidTargetContainer(obj)
 end
 
 function Game.getTargetFolders()
-    local clients = Workspace
-        :WaitForChild("Worlds")
-        :WaitForChild("Targets")
-        :WaitForChild("Clients")
-
+    local clients = workspace.Worlds.Targets.Clients
     local results = {}
 
     for _, obj in ipairs(clients:GetChildren()) do
-        if isRaidTargetContainer(obj) then
+        if obj.Name:match("^Raids") or obj.Name:match("^BossFight") then
             table.insert(results, obj)
         end
     end
@@ -194,17 +190,15 @@ end
 
 function Game.getEnemies(State)
     local folders = Game.getTargetFolders()
-    if #folders == 0 then
-        return {}
-    end
-
     local results = {}
 
     for _, folder in ipairs(folders) do
         for _, obj in ipairs(folder:GetChildren()) do
-            if isEnemyModel(obj) then
+            if obj:IsA("Model") then
                 local hum = obj:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
+                local hrp = obj:FindFirstChild("HumanoidRootPart")
+
+                if hum and hrp and hum.Health > 0 then
                     table.insert(results, obj)
                 end
             end
@@ -212,7 +206,14 @@ function Game.getEnemies(State)
     end
 
     if State and State.debug then
-        print("[Game.getEnemies] folders:", #folders, "enemies:", #results)
+        print("[Game.getEnemies] folders =", #folders)
+        for _, folder in ipairs(folders) do
+            print(" - folder:", folder:GetFullName(), "children:", #folder:GetChildren())
+        end
+        print("[Game.getEnemies] enemies =", #results)
+        for _, enemy in ipairs(results) do
+            print(" - enemy:", enemy:GetFullName(), "hp:", enemy:FindFirstChildOfClass("Humanoid").Health)
+        end
     end
 
     return results
