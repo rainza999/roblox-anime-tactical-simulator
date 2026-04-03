@@ -1,18 +1,21 @@
 local State = {
     running = false,
+    debug = true,
+
+    tickRate = 0.25,
 
     autoRaid = true,
     autoDungeonBoss = false,
 
-    selectedRaidMap = "Jujutsu Highschool",
-    selectedRaidLevel = "Nightmare",
+    currentMode = "idle",
 
-    selectedDungeonBossMap = "Map4",
+    raidMap = "Jujutsu Highschool",
+    raidLevel = "Nightmare",
 
-    selectedChests = {
-        "Golds",
-        "Specials",
-    },
+    selectedChests = { "Golds", "Specials" },
+
+    stopReason = nil,
+    killSwitchEnabled = true,
 
     bossWindows = {
         intervalMinutes = 10,

@@ -1,34 +1,30 @@
 local ATS2 = getgenv().ATS2
-local State = ATS2.require("modules/State.lua")
+local UIS = game:GetService("UserInputService")
 
 local UI = {}
+local hotkeyBound = false
 
 function UI.init()
-    print("[ATS2/UI] init")
+    warn("[ATS2/UI] init version:", ATS2 and ATS2.Version)
 
-    -- TODO:
-    -- Toggle: Auto Raid
-    -- Dropdown: Raid Map
-    -- Dropdown: Raid Level
-    -- Multi-select or ordered list: Selected Chests
-    -- Toggle: Auto Dungeon Boss
-    -- Dropdown: Dungeon Boss Map
-end
+    if hotkeyBound then
+        return
+    end
+    hotkeyBound = true
 
-function UI.setRaidMap(v)
-    State.selectedRaidMap = v
-end
+    UIS.InputBegan:Connect(function(input, gpe)
+        if gpe then return end
 
-function UI.setRaidLevel(v)
-    State.selectedRaidLevel = v
-end
-
-function UI.setDungeonBossMap(v)
-    State.selectedDungeonBossMap = v
-end
-
-function UI.setSelectedChests(list)
-    State.selectedChests = list
+        if input.KeyCode == Enum.KeyCode.RightControl then
+            if ATS2.isStopped() then
+                ATS2.resume()
+                warn("[ATS2/UI] resumed by hotkey")
+            else
+                ATS2.stop("RightControl hotkey")
+                warn("[ATS2/UI] stopped by hotkey")
+            end
+        end
+    end)
 end
 
 return UI
