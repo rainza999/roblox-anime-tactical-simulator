@@ -49,6 +49,7 @@ function AutoRaid.run(State)
     end
     State.currentMode = "raid"
 
+    warn("[AutoRaid] map =", State.raidMap, "level =", State.raidLevel)
     if not Game.isInRaid() then
         local ok = AutoRaid.enter(State)
         if not ok then
