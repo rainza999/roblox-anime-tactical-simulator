@@ -69,7 +69,20 @@ local function isEnemyModel(obj)
     return hum ~= nil and hrp ~= nil
 end
 
-local function getTargetFolders()
+local function isRaidTargetContainer(obj)
+    if not obj then
+        return false
+    end
+
+    if not (obj:IsA("Folder") or obj:IsA("Model")) then
+        return false
+    end
+
+    local n = obj.Name
+    return n:match("^Raids") ~= nil or n:match("^BossFight") ~= nil
+end
+
+function Game.getTargetFolders()
     local clients = Workspace
         :WaitForChild("Worlds")
         :WaitForChild("Targets")
@@ -78,57 +91,12 @@ local function getTargetFolders()
     local results = {}
 
     for _, obj in ipairs(clients:GetChildren()) do
-        if (obj:IsA("Folder") or obj:IsA("Model")) and (obj.Name:match("^Raids") or obj.Name:match("^BossFight")) then
+        if isRaidTargetContainer(obj) then
             table.insert(results, obj)
         end
     end
 
     return results
-end
-
-local function chooseBestTargetFolder()
-    local folders = getTargetFolders()
-    if #folders == 0 then
-        return nil
-    end
-
-    local bestFolder = nil
-    local bestCount = -1
-
-    for _, folder in ipairs(folders) do
-        local count = 0
-        for _, child in ipairs(folder:GetChildren()) do
-            if isEnemyModel(child) then
-                count = count + 1
-            end
-        end
-
-        if count > bestCount then
-            bestCount = count
-            bestFolder = folder
-        end
-    end
-
-    if bestFolder then
-        return bestFolder
-    end
-
-    return folders[1]
-end
-
-local function findActiveRaidVisual()
-    local visuals = Workspace:FindFirstChild("Raids_Visual")
-    if not visuals then
-        return nil
-    end
-
-    for _, obj in ipairs(visuals:GetChildren()) do
-        if obj.Name:find("_Server_") then
-            return obj
-        end
-    end
-
-    return nil
 end
 
 function Game.goToChallengesLobby()
@@ -221,23 +189,30 @@ function Game.enableAutoAttack()
 end
 
 function Game.isInRaid()
-    return chooseBestTargetFolder() ~= nil
+    return #Game.getTargetFolders() > 0
 end
 
-function Game.getEnemies()
-    local folder = chooseBestTargetFolder()
-    if not folder then
+function Game.getEnemies(State)
+    local folders = Game.getTargetFolders()
+    if #folders == 0 then
         return {}
     end
 
     local results = {}
-    for _, obj in ipairs(folder:GetChildren()) do
-        if isEnemyModel(obj) then
-            local hum = obj:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                table.insert(results, obj)
+
+    for _, folder in ipairs(folders) do
+        for _, obj in ipairs(folder:GetChildren()) do
+            if isEnemyModel(obj) then
+                local hum = obj:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    table.insert(results, obj)
+                end
             end
         end
+    end
+
+    if State and State.debug then
+        print("[Game.getEnemies] folders:", #folders, "enemies:", #results)
     end
 
     return results
@@ -253,9 +228,8 @@ function Game.attackTarget(target)
         return false
     end
 
-    -- ขยับไปข้างหน้ามอนนิดนึง ไม่ทับกลางตัว
-    local cf = hrp.CFrame * CFrame.new(0, 0, 3)
-    Utils.tpTo(cf)
+    local dest = hrp.CFrame * CFrame.new(0, 0, 3)
+    Utils.tpTo(dest)
     return true
 end
 
@@ -270,15 +244,31 @@ function Game.waitUntilInRaid(timeout)
     return false
 end
 
-function Game.waitForFirstEnemies(timeout)
+function Game.waitForFirstEnemies(timeout, State)
     local started = tick()
     while tick() - started < (timeout or 15) do
-        if #Game.getEnemies() > 0 then
+        local enemies = Game.getEnemies(State)
+        if #enemies > 0 then
             return true
         end
         task.wait(0.25)
     end
     return false
+end
+
+local function findActiveRaidVisual()
+    local visuals = Workspace:FindFirstChild("Raids_Visual")
+    if not visuals then
+        return nil
+    end
+
+    for _, obj in ipairs(visuals:GetChildren()) do
+        if obj.Name:find("_Server_") then
+            return obj
+        end
+    end
+
+    return nil
 end
 
 function Game.getRewardChests()
@@ -305,9 +295,8 @@ function Game.getRewardChests()
 end
 
 function Game.isRaidCleared(State, Config)
-    local enemies = Game.getEnemies()
+    local enemies = Game.getEnemies(State)
 
-    -- ยังไม่เคยเห็นมอน ห้ามถือว่าเคลียร์
     if not State.raidHasSeenEnemies then
         if #enemies > 0 then
             State.raidHasSeenEnemies = true
@@ -317,40 +306,43 @@ function Game.isRaidCleared(State, Config)
         return false
     end
 
-    -- ยังมีมอนอยู่ = ยังไม่จบ
     if #enemies > 0 then
         State.raidEmptySince = nil
         State.raidNoEnemyConfirmedAt = nil
         return false
     end
 
-    -- ไม่มีมอน เริ่มจับเวลา
     if not State.raidEmptySince then
         State.raidEmptySince = tick()
         return false
     end
 
-    -- ยังว่างไม่ถึง grace period => ยังไม่จบ เผื่อมี wave ใหม่
     if tick() - State.raidEmptySince < (Config.clearEmptyGrace or 5.0) then
         return false
     end
 
-    -- ยืนยันแล้วว่าไม่มีมอนจริง
     if not State.raidNoEnemyConfirmedAt then
         State.raidNoEnemyConfirmedAt = tick()
     end
 
-    -- ถ้ามี reward แล้ว = จบจริง
     if #Game.getRewardChests() > 0 then
         return true
     end
 
-    -- ยังไม่มี reward ก็รออีกนิด เผื่อเกม spawn reward ช้า
     if tick() - State.raidNoEnemyConfirmedAt < (Config.rewardAppearTimeout or 8.0) then
         return false
     end
 
     return false
+end
+
+function Game.getNamedChest(name)
+    for _, chest in ipairs(Game.getRewardChests()) do
+        if chest.Name == name then
+            return chest
+        end
+    end
+    return nil
 end
 
 function Game.openChest(chest)
@@ -366,21 +358,11 @@ function Game.openChest(chest)
     Utils.tpTo(targetPart.CFrame)
     task.wait(0.25)
 
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
     task.wait(0.08)
-    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
 
     return true
-end
-
-function Game.getNamedChest(name)
-    for _, chest in ipairs(Game.getRewardChests()) do
-        if chest.Name == name then
-            return chest
-        end
-    end
-    return nil
 end
 
 return Game

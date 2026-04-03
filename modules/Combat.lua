@@ -4,27 +4,14 @@ local Config = ATS2.require("modules/Config.lua")
 
 local Combat = {}
 
-function Combat.getClosestEnemy()
+local function getTargetDistanceFromPlayer(target)
     local char = game.Players.LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then
-        return nil
+    local hrp = target and target:FindFirstChild("HumanoidRootPart")
+    if not root or not hrp then
+        return math.huge
     end
-
-    local best, bestDist = nil, math.huge
-
-    for _, enemy in ipairs(Game.getEnemies()) do
-        local hrp = enemy:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dist = (root.Position - hrp.Position).Magnitude
-            if dist < bestDist then
-                best = enemy
-                bestDist = dist
-            end
-        end
-    end
-
-    return best
+    return (root.Position - hrp.Position).Magnitude
 end
 
 function Combat.refreshAutoAttack(State)
@@ -34,21 +21,57 @@ function Combat.refreshAutoAttack(State)
     end
 end
 
+function Combat.getClosestEnemy(State)
+    local best = nil
+    local bestDist = math.huge
+
+    for _, enemy in ipairs(Game.getEnemies(State)) do
+        local dist = getTargetDistanceFromPlayer(enemy)
+        if dist < bestDist then
+            best = enemy
+            bestDist = dist
+        end
+    end
+
+    return best
+end
+
+function Combat.waitUntilDeadOrGone(target, timeout, State)
+    local started = tick()
+
+    while tick() - started < (timeout or 8) do
+        Combat.refreshAutoAttack(State)
+
+        if not target or not target.Parent then
+            return true
+        end
+
+        local hum = target:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            return true
+        end
+
+        task.wait(0.15)
+    end
+
+    return false
+end
+
 function Combat.clearAllEnemies(State)
     while true do
         Combat.refreshAutoAttack(State)
 
-        local enemies = Game.getEnemies()
+        local enemies = Game.getEnemies(State)
         if #enemies == 0 then
             return true
         end
 
-        local target = Combat.getClosestEnemy()
+        local target = Combat.getClosestEnemy(State)
         if target then
             Game.attackTarget(target)
-            task.wait(Config.attackDelay or 0.08)
+            Combat.waitUntilDeadOrGone(target, 10, State)
         else
-            task.wait(0.15)
+            task.wait(0.2)
         end
     end
 end
