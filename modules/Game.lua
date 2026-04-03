@@ -37,6 +37,7 @@ local function getRoot()
 end
 
 local function getParty()
+    print("[Game.getParty] Finding party for player v2:", LocalPlayer.Name)
     local parties = ReplicatedStorage
         :WaitForChild("Shared")
         :WaitForChild("Parties")
